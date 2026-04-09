@@ -12,6 +12,8 @@ const userSchema = new Schema<IUser>(
       trim: true,
     },
     phone: { type: String, trim: true },
+    state: { type: String, trim: true },
+    city: { type: String, trim: true },
     bio: { type: String, trim: true },
     avatar: { type: String, trim: true },
   },

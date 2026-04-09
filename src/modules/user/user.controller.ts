@@ -16,9 +16,10 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const getUsers = async (_req: Request, res: Response, next: NextFunction) => {
+export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const users = await findAllUsers();
+    const bio = typeof req.query.bio === 'string' ? req.query.bio : undefined;
+    const users = await findAllUsers(bio);
     res.json({ success: true, data: users });
   } catch (err) {
     next(err);
@@ -54,3 +55,4 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
     next(err);
   }
 };
+

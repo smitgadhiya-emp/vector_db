@@ -9,6 +9,10 @@ export interface QueryResult {
 export const commonQueryEmbedding = async (query: string): Promise<QueryResult> => {
   try {
     const embedding = await generateQueryEmbedding(query);
+
+    console.log("Generated embedding:", embedding);
+
+
     return {
       query,
       embedding,

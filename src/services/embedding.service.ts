@@ -5,7 +5,6 @@ export const generateEmbedding = async (text: string): Promise<number[]> => {
     model: "text-embedding-3-small",
     input: text,
   });
-    console.log("Embedding response:", res);
   return res.data[0].embedding;
 };
 
