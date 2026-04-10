@@ -102,7 +102,7 @@ export const messageConsumeFromPdfQueueAndCreateChunk = async (message: Buffer) 
       await collection.upsert({
         ids: [chunkId],
         embeddings: [embedding],
-        documents: [payload.chunk],
+        // documents: [payload.chunk],
         metadatas: [
           {
             sourceType: payload.metadata.sourceType,
