@@ -1,19 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
+import { sendError, sendSuccess } from '../../utils/response.util';
 import {
   createUser as createUserService,
   findAllUsers,
   findUserById,
   updateUserById,
   deleteUserById,
-  findQueryResults
+  findQueryResults,
 } from './user.service';
 
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await createUserService(req.body);
-    res.status(201).json({ success: true, data: user });
+    return sendSuccess(res, { data: user, statusCode: 201 });
   } catch (err) {
-    next(err);
+    sendError(res, err as Error || 'Internal Server Error', 500);
   }
 };
 
@@ -21,55 +22,53 @@ export const getUsers = async (req: Request, res: Response, next: NextFunction) 
   try {
     const bio = typeof req.query.bio === 'string' ? req.query.bio : undefined;
     const users = await findAllUsers(bio);
-    res.json({ success: true, data: users });
+    return sendSuccess(res, { data: users });
   } catch (err) {
-    next(err);
+    sendError(res, err as Error || 'Internal Server Error', 500);
   }
 };
 
 export const getUserById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await findUserById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.json({ success: true, data: user });
+    if (!user) return sendError(res, 'User not found', 404);
+    return sendSuccess(res, { data: user });
   } catch (err) {
-    next(err);
+    sendError(res, err as Error || 'Internal Server Error', 500);
   }
 };
 
 export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await updateUserById(req.params.id, req.body);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.json({ success: true, data: user });
+    if (!user) return sendError(res, 'User not found', 404);
+    return sendSuccess(res, { data: user });
   } catch (err) {
-    next(err);
+    sendError(res, err as Error || 'Internal Server Error', 500);
   }
 };
 
 export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await deleteUserById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    
+    if (!user) return sendError(res, 'User not found', 404);
+    return sendSuccess(res, { data: user });
   } catch (err) {
-    next(err);
+    sendError(res, err as Error || 'Internal Server Error', 500);
   }
 };
 
 export const getQueryUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const {query} = req.query;
-    console.log("Received query:", query);
+    const { query } = req.query;
     if (typeof query !== 'string') {
-      return res.status(400).json({ success: false, message: 'Query parameter is required and must be a string' });
+      return sendError(res, 'Query parameter is required and must be a string', 400);
     }
 
-     const userQuey = await findQueryResults(query);
-     res.json({ success: true, message: 'Query results found', data: userQuey });
+    const queryResult = await findQueryResults(query);
+    return sendSuccess(res, { message: 'Query results found', data: queryResult });
   } catch (error) {
-    console.error("Error in getQueryUser:", error);
-    next(error);
+    console.error('Error in getQueryUser:', error);
+    sendError(res, error as Error || 'Internal Server Error', 500);
   }
-
-}
+};

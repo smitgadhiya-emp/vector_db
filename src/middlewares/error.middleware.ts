@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
+import { sendError } from '../utils/response.util';
 
 export const notFound = (req: Request, res: Response, _next: NextFunction) => {
-  res.status(404).json({ success: false, message: `Route not found: ${req.originalUrl}` });
+  sendError(res, `Route not found: ${req.originalUrl}`, 404);
 };
 
 export const errorHandler = (
@@ -11,8 +12,5 @@ export const errorHandler = (
   _next: NextFunction
 ) => {
   const status = err.statusCode || 500;
-  res.status(status).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-  });
+  sendError(res, err.message || 'Internal Server Error', status);
 };

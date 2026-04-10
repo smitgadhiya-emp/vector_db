@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import routes from './routes';
 import { notFound, errorHandler } from './middlewares/error.middleware';
+import { sendSuccess } from './utils/response.util';
 
 const app: Application = express();
 
@@ -14,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 app.get('/health', (_req: Request, res: Response) => {
-  res.json({ success: true, message: 'Server is healthy' });
+  sendSuccess(res, { message: 'Server is healthy' });
 });
 
 app.use('/api/v1', routes);
