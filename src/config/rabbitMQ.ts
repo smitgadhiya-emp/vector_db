@@ -1,8 +1,12 @@
 import amqp from "amqplib";
 import { messageConsumeFromQueue } from "../lib/queue.subscriber";
+import { messageConsumeFromPdfQueueAndCreateChunk, messageConsumeFromChunkEmbeddingQueue } from "../lib/pdf.subscriber";
 
 let connection: amqp.ChannelModel | null = null;
 let channel: amqp.Channel | null = null;
+export const SMS_QUEUE_NAME = "sms";
+export const PDF_QUEUE_NAME = "pdfQueue";
+export const CHUNK_EMBEDDING_QUEUE_NAME = "chunkEmbeddingQueue";
 
 const connectRabbitMQ = async () => {
   if (!connection) {
@@ -17,7 +21,7 @@ const connectRabbitMQ = async () => {
   return channel;
 };
 
-export const publishToQueue = async (queueName: string, message: string) => {
+export const publishToQueue = async (queueName: string, message: string | Buffer) => {
   const channel = await connectRabbitMQ();
   await channel.assertQueue(queueName, { durable: true });
   channel.sendToQueue(queueName, Buffer.from(message));
@@ -42,16 +46,28 @@ export const consumeFromQueue = async (
   });
 };
 
+export const consumeFromQueueAsBuffer = async (
+  queueName: string,
+  callback: (msg: Buffer) => void,
+) => {
+  const channel = await connectRabbitMQ();
+  await channel.assertQueue(queueName, { durable: true });
+  channel.consume(queueName, (msg) => {
+    if (msg) {
+      callback(msg.content);
+      channel.ack(msg);
+    }
+  });
+};
+
 // subscribe to queues and publish messages
 
 connectRabbitMQ().then(() => {
-//   publishToQueue("sms", "Hello from RabbitMQ 1!").catch(console.error);
 
-
-  consumeFromQueue("sms", (msg) => messageConsumeFromQueue(msg));
-  consumeFromQueue("email", (msg) => {
-    console.log("email", msg);
-  });
+  consumeFromQueue(SMS_QUEUE_NAME, (msg) => messageConsumeFromQueue(msg));
+  consumeFromQueueAsBuffer(PDF_QUEUE_NAME, (msg) => messageConsumeFromPdfQueueAndCreateChunk(msg)
+  );
+  consumeFromQueue(CHUNK_EMBEDDING_QUEUE_NAME, (msg) => messageConsumeFromChunkEmbeddingQueue(msg));
 
 });
 
