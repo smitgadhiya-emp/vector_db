@@ -30,32 +30,42 @@ export const publishToQueue = async (queueName: string, message: string | Buffer
 
 export const consumeFromQueue = async (
   queueName: string,
-  callback: (msg: string) => void,
+  callback: (msg: string) => Promise<void>,
 ) => {
   const channel = await connectRabbitMQ();
   await channel.assertQueue(queueName, { durable: true });
-  channel.consume(queueName, (msg) => {
+  channel.consume(queueName, async (msg) => {
     if (msg) {
       const messageContent = msg.content.toString();
-      console.log(
-        `Message received from queue ${queueName}: ${messageContent}`,
-      );
-      callback(messageContent);
-      channel.ack(msg);
+      try {
+        console.log(
+          `Message received from queue ${queueName}: ${messageContent}`,
+        );
+        await callback(messageContent);
+        channel.ack(msg);
+      } catch (error) {
+        console.error(`Error processing queue ${queueName}:`, error);
+        channel.nack(msg, false, true);
+      }
     }
   });
 };
 
 export const consumeFromQueueAsBuffer = async (
   queueName: string,
-  callback: (msg: Buffer) => void,
+  callback: (msg: Buffer) => Promise<void>,
 ) => {
   const channel = await connectRabbitMQ();
   await channel.assertQueue(queueName, { durable: true });
-  channel.consume(queueName, (msg) => {
+  channel.consume(queueName, async (msg) => {
     if (msg) {
-      callback(msg.content);
-      channel.ack(msg);
+      try {
+        await callback(msg.content);
+        channel.ack(msg);
+      } catch (error) {
+        console.error(`Error processing queue ${queueName}:`, error);
+        channel.nack(msg, false, true);
+      }
     }
   });
 };
@@ -64,10 +74,15 @@ export const consumeFromQueueAsBuffer = async (
 
 connectRabbitMQ().then(() => {
 
-  consumeFromQueue(SMS_QUEUE_NAME, (msg) => messageConsumeFromQueue(msg));
-  consumeFromQueueAsBuffer(PDF_QUEUE_NAME, (msg) => messageConsumeFromPdfQueueAndCreateChunk(msg)
-  );
-  consumeFromQueue(CHUNK_EMBEDDING_QUEUE_NAME, (msg) => messageConsumeFromChunkEmbeddingQueue(msg));
+  consumeFromQueue(SMS_QUEUE_NAME, async (msg) => {
+    await messageConsumeFromQueue(msg);
+  });
+  consumeFromQueueAsBuffer(PDF_QUEUE_NAME, async (msg) => {
+    await messageConsumeFromPdfQueueAndCreateChunk(msg);
+  });
+  consumeFromQueue(CHUNK_EMBEDDING_QUEUE_NAME, async (msg) => {
+    await messageConsumeFromChunkEmbeddingQueue(msg);
+  });
 
 });
 

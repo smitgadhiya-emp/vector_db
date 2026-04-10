@@ -7,6 +7,8 @@ import { getPdfChunkCollection } from "../config/chroma";
 
 const CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;
+const MAX_CHROMA_RETRIES = 5;
+const BASE_RETRY_DELAY_MS = 1000;
 
 type ChunkPayload = {
     chunk: string;
@@ -30,6 +32,17 @@ type ChunkEmbeddingPayload = {
       documentHash: string;
     };
   };
+
+const sleep = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRateLimitError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === "ChromaRateLimitError" ||
+    error.message.toLowerCase().includes("rate limit")
+  );
+};
 
 export const messageConsumeFromPdfQueueAndCreateChunk = async (message: Buffer) => {
     try {
@@ -98,23 +111,42 @@ export const messageConsumeFromPdfQueueAndCreateChunk = async (message: Buffer) 
       const embedding = await generateEmbedding(payload.chunk);
       const collection = await getPdfChunkCollection();
       const chunkId = `${payload.metadata.documentId}:${payload.index}`;
+
+    for (let attempt = 1; attempt <= MAX_CHROMA_RETRIES; attempt += 1) {
+      try {
+        await collection.upsert({
+          ids: [chunkId],
+          embeddings: [embedding],
+          documents: [payload.chunk],
+          metadatas: [
+            {
+              sourceType: payload.metadata.sourceType,
+              documentId: payload.metadata.documentId,
+              documentHash: payload.metadata.documentHash,
+              chunkIndex: payload.index,
+              totalChunks: payload.total,
+            },
+          ],
+        });
+        console.log(`Stored embedding for chunk ${chunkId}`);
+        return;
+      } catch (error) {
+        const shouldRetry =
+          isRateLimitError(error) && attempt < MAX_CHROMA_RETRIES;
+
+        if (!shouldRetry) {
+          throw error;
+        }
+
+        const backoffMs = BASE_RETRY_DELAY_MS * 2 ** (attempt - 1);
+        console.warn(
+          `Rate limit while storing chunk ${chunkId}. Retry ${attempt}/${MAX_CHROMA_RETRIES} in ${backoffMs}ms`,
+        );
+        await sleep(backoffMs);
+      }
+    }
   
-      await collection.upsert({
-        ids: [chunkId],
-        embeddings: [embedding],
-        // documents: [payload.chunk],
-        metadatas: [
-          {
-            sourceType: payload.metadata.sourceType,
-            documentId: payload.metadata.documentId,
-            documentHash: payload.metadata.documentHash,
-            chunkIndex: payload.index,
-            totalChunks: payload.total,
-          },
-        ],
-      });
-  
-      console.log(`Stored embedding for chunk ${chunkId}`);
+    throw new Error(`Unable to store embedding for chunk ${chunkId}`);
     } catch (error) {
       console.error("Error consuming from chunk embedding queue:", error);
       throw error;
