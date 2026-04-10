@@ -1,6 +1,7 @@
 import app from './app';
 import { env } from './config/env';
 import { connectDB } from './config/db';
+import "./config/rabbitMQ"
 
 const start = async () => {
   await connectDB();
